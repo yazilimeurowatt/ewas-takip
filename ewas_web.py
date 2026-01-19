@@ -88,10 +88,12 @@ if not check_password():
 
 # --- Google Drive Link Dönüştürücü ---
 def get_drive_download_url(url):
-    """Google Drive view linkini direkt indirme linkine çevirir."""
-    if "drive.google.com" in url and "/d/" in url:
-        file_id = url.split("/d/")[1].split("/")[0]
-        return f"https://drive.google.com/uc?export=download&id={file_id}"
+    """Google Drive view linkini direkt xlsx indirme linkine çevirir."""
+    if "drive.google.com" in url or "docs.google.com" in url:
+        if "/d/" in url:
+            file_id = url.split("/d/")[1].split("/")[0]
+            # Kesin çözüm: export?format=xlsx
+            return f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=xlsx"
     return url
 
 def get_excel_path():
@@ -139,15 +141,26 @@ if not excel_path:
     st.stop()
 
 # --- Veri Yükleme Fonksiyonu ---
-@st.cache_data(ttl=60) # Drive için süreyi biraz artırdık (60s)
+@st.cache_data(ttl=60) 
 def load_data(path):
     try:
         # URL Kontrolü (Drive vb.)
         if str(path).startswith("http"):
-            response = requests.get(path)
+            # header ekleyerek tarayıcı gibi davranalım (Google engeline takılmamak için)
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(path, headers=headers)
+            
             if response.status_code == 200:
-                file_stream = io.BytesIO(response.content)
-                df = pd.read_excel(file_stream, engine="openpyxl")
+                # Kontrol: İndirilen şey gerçekten Excel (Zip) mi?
+                # Excel dosyaları (xlsx) birer Zip dosyasıdır ve 'PK' ile başlar.
+                if response.content.startswith(b'PK'):
+                    file_stream = io.BytesIO(response.content)
+                    df = pd.read_excel(file_stream, engine="openpyxl")
+                else:
+                    # Excel değilse muhtemelen HTML (Giriş sayfası veya Virüs uyarısı)
+                    st.error("Hata: Google Drive doğrudan indirmeye izin vermedi. Muhtemelen dosya 'Herkese Açık' değil veya virüs taraması uyarısı çıkıyor.")
+                    st.caption(f"Google'dan dönen ilk 200 karakter: {response.content[:200]}") # Hata ayıklama için
+                    return pd.DataFrame()
             else:
                 st.error(f"Dosya indirilemedi. Hata Kodu: {response.status_code}")
                 return pd.DataFrame()
@@ -155,7 +168,7 @@ def load_data(path):
             # Yerel Dosya
             df = pd.read_excel(path, engine="openpyxl")
         
-        # Filtreleme: Sadece Boru ve Özel
+        # Filtreleme
         if "Bölüm" in df.columns:
             df["Bölüm_Lower"] = df["Bölüm"].astype(str).str.lower()
             df = df[df["Bölüm_Lower"].isin(["boru", "özel", "ozel"])]
