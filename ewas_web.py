@@ -140,9 +140,9 @@ if not excel_path:
 @st.cache_data(ttl=60) # Drive için süreyi biraz artırdık (60s)
 def load_data(path):
     try:
-        # Excel'i oku
+        # Excel'i oku (engine='openpyxl' ile formatı zorla)
         # Eğer path bir URL ise pandas bunu otomatik indirip okur (openpyxl installed olmalı)
-        df = pd.read_excel(path)
+        df = pd.read_excel(path, engine="openpyxl")
         
         # Filtreleme: Sadece Boru ve Özel
         if "Bölüm" in df.columns:
@@ -230,4 +230,3 @@ st.divider()
 st.caption(f"Veri Kaynağı: `{excel_path}` | Sistem Saati: {time.strftime('%H:%M:%S')}")
 if count_upcoming > 0:
     st.warning(f"⚠️ DİKKAT: Toplam {count_upcoming} adet siparişin teslim tarihi geçmiş veya 7 günden az kalmış!")
-
