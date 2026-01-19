@@ -95,14 +95,24 @@ def get_drive_download_url(url):
 def get_excel_path():
     # 1. Önce Config dosyasına bak (Link veya Dosya Yolu olabilir)
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            content = f.read().strip()
-            # Eğer içerik http ile başlıyorsa (Link ise)
-            if content.startswith("http"):
-                return get_drive_download_url(content)
-            # Yerel dosya yolu ise ve varsa
-            if os.path.exists(content):
-                return content
+        try:
+            # Önce utf-8 dene
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+        except UnicodeDecodeError:
+            try:
+                # Olmazsa utf-16 dene (Windows bazen böyle kaydeder)
+                with open(CONFIG_FILE, "r", encoding="utf-16") as f:
+                    content = f.read().strip()
+            except Exception:
+                return None # Okunamazsa dosyayı yok say
+        
+        # Eğer içerik http ile başlıyorsa (Link ise)
+        if content.startswith("http"):
+            return get_drive_download_url(content)
+        # Yerel dosya yolu ise ve varsa
+        if os.path.exists(content):
+            return content
     
     # 2. Varsayılan yerel dosyaya bak
     if os.path.exists(DEFAULT_FILE):
@@ -220,3 +230,4 @@ st.divider()
 st.caption(f"Veri Kaynağı: `{excel_path}` | Sistem Saati: {time.strftime('%H:%M:%S')}")
 if count_upcoming > 0:
     st.warning(f"⚠️ DİKKAT: Toplam {count_upcoming} adet siparişin teslim tarihi geçmiş veya 7 günden az kalmış!")
+
