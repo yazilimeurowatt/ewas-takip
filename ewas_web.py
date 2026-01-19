@@ -2,8 +2,10 @@ import streamlit as st
 import pandas as pd
 import os
 import time
+import requests
+import io
 
-# --- Sayfa Ayarları ---
+# --- Sayfa Ayarları (En Başta Olmalı) ---
 st.set_page_config(
     page_title="E.W.A.S Web Paneli",
     page_icon="🏭",
@@ -140,9 +142,18 @@ if not excel_path:
 @st.cache_data(ttl=60) # Drive için süreyi biraz artırdık (60s)
 def load_data(path):
     try:
-        # Excel'i oku (engine='openpyxl' ile formatı zorla)
-        # Eğer path bir URL ise pandas bunu otomatik indirip okur (openpyxl installed olmalı)
-        df = pd.read_excel(path, engine="openpyxl")
+        # URL Kontrolü (Drive vb.)
+        if str(path).startswith("http"):
+            response = requests.get(path)
+            if response.status_code == 200:
+                file_stream = io.BytesIO(response.content)
+                df = pd.read_excel(file_stream, engine="openpyxl")
+            else:
+                st.error(f"Dosya indirilemedi. Hata Kodu: {response.status_code}")
+                return pd.DataFrame()
+        else:
+            # Yerel Dosya
+            df = pd.read_excel(path, engine="openpyxl")
         
         # Filtreleme: Sadece Boru ve Özel
         if "Bölüm" in df.columns:
